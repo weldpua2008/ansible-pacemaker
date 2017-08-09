@@ -1,6 +1,6 @@
 ---
 galaxy_info:
-  author: Styopa Semenukha
+  author: Valeriy Soloviov based on work of Styopa Semenukha
   description: Pacemaker cluster configuration role
   company: Development Gateway
   license: GPLv3
@@ -14,4 +14,3 @@ galaxy_info:
     - 19
   categories:
   - clustering
-dependencies: []

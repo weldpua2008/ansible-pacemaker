@@ -1,0 +1,90 @@
+#!/bin/sh
+#######################################################################
+# CM Agent OCF script
+#######################################################################
+#######################################################################
+# Initialization:
+: ${__OCF_ACTION=$1}
+OCF_SUCCESS=0
+OCF_ERROR=1
+OCF_STOPPED=7
+#######################################################################
+
+meta_data() {
+        cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="Cloudera Manager Agent" version="1.0">
+<version>1.0</version>
+
+<longdesc lang="en">
+ This OCF agent handles simple monitoring, start, stop of the Cloudera
+ Manager Agent, intended for use with Pacemaker/corosync for failover.
+</longdesc>
+<shortdesc lang="en">Cloudera Manager Agent OCF script</shortdesc>
+
+<parameters />
+
+<actions>
+<action name="start"        timeout="20" />
+<action name="stop"         timeout="20" />
+<action name="monitor"      timeout="20" interval="10" depth="0"/>
+<action name="meta-data"    timeout="5" />
+</actions>
+</resource-agent>
+END
+}
+
+#######################################################################
+
+agent_usage() {
+cat <<END
+ usage: $0 {start|stop|monitor|meta-data}
+ Cloudera Manager Agent HA OCF script - used for managing Cloudera Manager Agent and managed processes lifecycle for use with Pacemaker.
+END
+}
+
+agent_start() {
+    service cloudera-scm-agent start
+    if [ $? =  0 ]; then
+        return $OCF_SUCCESS
+    fi
+    return $OCF_ERROR
+}
+
+agent_stop() {
+    service cloudera-scm-agent hard_stop_confirmed
+    if [ $? =  0 ]; then
+        return $OCF_SUCCESS
+    fi
+    return $OCF_ERROR
+}
+
+agent_monitor() {
+        # Monitor _MUST!_ differentiate correctly between running
+        # (SUCCESS), failed (ERROR) or _cleanly_ stopped (NOT RUNNING).
+        # That is THREE states, not just yes/no.
+        service cloudera-scm-agent status
+        if [ $? = 0 ]; then
+            return $OCF_SUCCESS
+        fi
+        return $OCF_STOPPED
+}
+
+
+case $__OCF_ACTION in
+meta-data)      meta_data
+                exit $OCF_SUCCESS
+                ;;
+start)          agent_start;;
+stop)           agent_stop;;
+monitor)        agent_monitor;;
+usage|help)     agent_usage
+                exit $OCF_SUCCESS
+                ;;
+*)              agent_usage
+                exit $OCF_ERR_UNIMPLEMENTED
+                ;;
+esac
+rc=$?
+exit $rc

@@ -1,0 +1,105 @@
+#!/bin/sh
+#######################################################################
+# TUN Monitor OCF script
+#######################################################################
+#######################################################################
+# Initialization:
+: ${__OCF_ACTION=$1}
+OCF_SUCCESS=0
+OCF_ERROR=1
+OCF_STOPPED=7
+#######################################################################
+
+meta_data() {
+        cat <<END
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="Monitor for Tun GRE Interfaces" version="1.0">
+<version>1.0</version>
+
+<longdesc lang="en">
+ This OCF agent handles simple monitoring, start, stop of the native tunneling interfaces.
+</longdesc>
+<shortdesc lang="en">TUN Monitor OCF script</shortdesc>
+
+<parameters>
+
+<parameter name="interface" unique="1" required="1">
+<longdesc lang="en">
+The name of the network interface which should be monitored (e.g. tun0).
+</longdesc>
+<shortdesc lang="en">Network interface name</shortdesc>
+<content type="string" default=""/>
+</parameter>
+
+</parameters>
+
+<actions>
+<action name="start"        timeout="20" />
+<action name="stop"         timeout="20" />
+<action name="monitor"      timeout="20" interval="10" depth="0"/>
+<action name="meta-data"    timeout="5" />
+</actions>
+</resource-agent>
+END
+}
+
+#######################################################################
+
+IFmon_usage() {
+cat <<END
+ usage: $0 {start|stop|monitor|meta-data}
+ Tun Monitor OCF script - used for managing System GRE Tunnel interfaces and managed processes lifecycle for use with Pacemaker.
+END
+}
+
+IFmon_start() {
+
+    /sbin/ifup $OCF_RESKEY_interface 2>&1
+
+    if [ $? = 0 ]; then
+        return $OCF_SUCCESS
+    fi
+
+    return $OCF_ERROR
+}
+
+IFmon_stop() {
+
+    /sbin/ifdown $OCF_RESKEY_interface 2>&1
+
+    if [ $? = 0 ]; then
+        return $OCF_SUCCESS
+    fi
+
+    return $OCF_ERROR
+}
+
+IFmon_monitor() {
+
+    ifconfig $OCF_RESKEY_interface  2>&1
+
+    if [ $? = 0 ]; then
+        return $OCF_SUCCESS
+    fi
+
+    return $OCF_STOPPED
+}
+
+
+case $__OCF_ACTION in
+meta-data)      meta_data
+                exit $OCF_SUCCESS
+                ;;
+start)          IFmon_start;;
+stop)           IFmon_stop;;
+monitor)        IFmon_monitor;;
+usage|help)     IFmon_usage
+                exit $OCF_SUCCESS
+                ;;
+*)              IFmon_usage
+                exit $OCF_ERR_UNIMPLEMENTED
+                ;;
+esac
+rc=$?
+exit $rc

@@ -1,2 +1,9 @@
 ---
+pacemaker_user: hacluster
+pacemaker_group: haclient
 pacemaker_password: hacluster
+pacemaker_resource_d: "/usr/lib/ocf/resource.d"
+pacemaker_packages:
+  - pacemaker
+  - resource-agents
+  - pcs

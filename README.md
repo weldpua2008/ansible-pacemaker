@@ -70,6 +70,20 @@ For the detailed descriptions check out the resources below.
         pacemaker_cluster_name: foobar
         pacemaker_properties:
           stonith_enabled: "false"
+        _pacemaker_private_interface: |
+            {% for interface in ansible_interfaces %}
+            {% if 'docker' in interface or 'lo' in interface %}{% continue %}{% endif %}
+            {% set _int = 'ansible_%s' | format(interface) %}
+            {% if _int in hostvars[inventory_hostname] and 'ipv4' in  hostvars[inventory_hostname][_int] and  hostvars[inventory_hostname][_int]['ipv4']['address'] is defined %}
+                 {% if  hostvars[inventory_hostname][_int]['ipv4']['address'] | ipaddr('private') %}
+                 {{ interface|trim}}
+                 {% break %}{% endif %}
+            {% endif %}
+            {% endfor %}
+
+        pacemaker_private_interface: "{{ _pacemaker_private_interface | trim }}"
+        pacemaker_corosync_ring_interface: "{{ pacemaker_private_interface }}"
+
         pacemaker_resources:
           - id: dns-ip
             type: "ocf:heartbeat:IPaddr2"
