@@ -1,0 +1,6 @@
+---
+- import_playbook: meta/main.yml
+- import_playbook: vars/main.yml
+- import_playbook: defaults/main.yml
+- import_playbook: tasks/main.yml
+- import_playbook: handlers/main.yml

@@ -12,5 +12,8 @@ galaxy_info:
   - name: Fedora
     versions:
     - 19
+  - name: Ubuntu
+    versions:
+    - 16
   categories:
   - clustering
