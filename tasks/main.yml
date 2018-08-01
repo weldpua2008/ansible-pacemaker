@@ -2,31 +2,45 @@
 - name: Ensure cluster group membership
   fail: msg="Cluster hosts must be members of a group"
   when: pacemaker_ansible_group is not iterable
+  tags:
+    - verify
 
 - name: Install Pacemaker Configuration System package
-  yum: name={{ item }} state=installed
+  package: name={{ item }} state=present
   with_items: "{{ pacemaker_packages }}"
+  tags:
+    - setup
 
 - name: Enable and start PCS daemon
   service: name=pcsd enabled=yes state=started
+  tags:
+    - setup
 
 - name: Create cluster system group
   group: name={{ pacemaker_group }} state=present
+  tags:
+    - setup
 
 - name: Create cluster system user
   user:
     name={{ pacemaker_user }}
     password={{ pacemaker_password | password_hash('sha512', ansible_hostname) }}
     groups={{ pacemaker_group }} comment="HA Cluster Administrator"
+  tags:
+    - setup
 
 - name: Check if /etc/corosync/corosync.conf exists
   stat: path=/etc/corosync/corosync.conf
   register: corosync_conf_exists
+  tags:
+    - setup
 
 - name: Delete previous /etc/cluster/cluster.conf
   file: path=/etc/corosync/corosync.conf state=absent force=yes
   when: corosync_conf_exists.stat.exists == true
   ignore_errors: yes
+  tags:
+    - setup
 
 - name: Authenticate all nodes
   command: >
@@ -38,9 +52,14 @@
   run_once: true
   args:
     creates: /var/lib/pcsd/tokens
+  tags:
+    - setup
 
+# There is a bug here I think. on Centos 7 both files not exists and on ubuntu 16 the src file not exists
 - name: Re-use same key for Corosync as in use for pcs
   file: src=/var/lib/pcsd/pcsd.crt dest=/etc/corosync/authkey state=link force=yes
+  tags:
+    - setup
 
 - name: Setup cluster message bus with multicast support
   run_once: true
@@ -52,6 +71,8 @@
   args:
     creates: /etc/corosync/corosync.conf
   when: pacemaker_corosync_mcastaddr is defined
+  tags:
+    - setup
 
 - name: Setup cluster message bus without multicast support
   run_once: true
@@ -63,6 +84,8 @@
   args:
     creates: /etc/corosync/corosync.conf
   when: pacemaker_corosync_mcastaddr is not defined
+  tags:
+    - setup
 
 - name: Creates corosync config
   template:
@@ -71,7 +94,9 @@
     mode: 0400
     owner: root
     force: yes
-  #notify: Restart corosync
+    # notify: Restart corosync
+    tags:
+      - setup
 
 - name: Start all cluster nodes
   service: name={{ item }} enabled=yes state=restarted
@@ -79,39 +104,51 @@
     - pacemaker
     - corosync
   ignore_errors: true
+  tags:
+    - setup
 
 - name: Check if path exists pacemaker_resource.d
   stat: path={{ pacemaker_resource_d }}
   register: path
+  tags:
+    - verify
 
 - name: Create folder for Cloudera CM Agent
   file: path={{ pacemaker_resource_d }}/cm state=directory owner=root group=root
   when: path.stat.exists == true
+  tags:
+    - setup
 
-- name: Install Agent for HAProxy - CentOS 6/7
+- name: Install Agent for HAProxy
   template:
     src: resource.d/haproxy.j2
     dest: "{{ pacemaker_resource_d }}/heartbeat/haproxy"
     mode: 0770
     owner: root
     force: yes
+  tags:
+    - deploy
 
-- name: Install Agent for HAProxy - CentOS 6/7
+- name: Install Agent for IFmon
   template:
     src: resource.d/IFmon.j2
     dest: "{{ pacemaker_resource_d }}/heartbeat/IFmon"
     mode: 0770
     owner: root
     force: yes
+  tags:
+    - deploy
 
-- name: Install Agent for CM - CentOS 6
+- name: Install Agent for CM - All linux distribution
   template:
-    src: resource.d/cm.agent.el6.j2
+    src: resource.d/cm.agent.linux.j2
     dest: "{{ pacemaker_resource_d }}/cm/agent"
     mode: 0770
     owner: root
     force: yes
-  when: (ansible_distribution == "CentOS" and ansible_distribution_major_version == "6")
+  when: not (ansible_distribution == "CentOS" and ansible_distribution_major_version == "7")
+  tags:
+    - deploy
 
 - name: Install Agent for CM - CentOS 7
   template:
@@ -121,18 +158,24 @@
     owner: root
     force: yes
   when: (ansible_distribution == "CentOS" and ansible_distribution_major_version == "7")
+  tags:
+    - deploy
 
-- name: Resource Debug Utility - CentOS 6/7
+- name: Resource Debug Utility - CentOS 6/7 and Ubuntu 16
   copy:
     src: resource_debug
     dest: "/usr/sbin/resource_debug"
     mode: 0777
     owner: root
     force: yes
+  tags:
+    - deploy
 
 - name: Waiting until cluster properly starts....
   pause:
     seconds: 15
+  tags:
+    - deploy
 
 - name: Set cluster general settings
   run_once: true
@@ -144,12 +187,16 @@
   retries: 3
   delay: 1
   ignore_errors: yes
+  tags:
+    - configure
 
 - name: Set cluster properties
   run_once: true
   command: pcs property set {{ item.key | replace('_', '-') }}={{ item.value }}
   with_dict: "{{ pacemaker_properties }}"
   when: pacemaker_properties is defined
+  tags:
+    - configure
 
 - name: Clear previous resources if exist
   run_once: true
@@ -158,6 +205,8 @@
   shell: >
     pcs resource delete {{ item.id }} || true;
     pcs constraint order remove {{ item.id }} || true
+  tags:
+    - configure
 
 - name: Clear previous bindings resources if exist
   run_once: true
@@ -166,6 +215,8 @@
   shell: >
     pcs constraint colocation remove {{ item.id }} || true;
     pcs constraint order remove {{ item.id }} || true
+  tags:
+    - configure
 
 - name: Create pacemaker resources
   run_once: true
@@ -224,6 +275,8 @@
   until: task_result.rc == 0
   retries: 2
   delay: 5
+  tags:
+    - configure
 
 - name: Clear previous failcounter if exist
   run_once: true
@@ -231,6 +284,8 @@
   with_items: "{{ pacemaker_resources }}"
   shell: >
     pcs resource cleanup {{ item.id }} || true
+  tags:
+    - configure
 
 - name: Create resources bundling - Order
   run_once: true
@@ -243,6 +298,8 @@
         {{ opt }}
       {% endfor %}
     {% endif %}
+  tags:
+    - configure
 
 - name: Create resources bundling - Colocation
   run_once: true
@@ -255,3 +312,5 @@
         {{ opt }}
       {% endfor %}
     {% endif %} {{ item.type }}
+  tags:
+    - configure

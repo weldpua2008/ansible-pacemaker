@@ -6,11 +6,14 @@ galaxy_info:
   license: GPLv3
   min_ansible_version: 1.9
   platforms:
-  - name: EL
-    versions:
-    - 7
-  - name: Fedora
-    versions:
-    - 19
+    - name: EL
+      versions:
+        - 7
+    - name: Fedora
+      versions:
+        - 19
+    - name: Ubuntu
+      versions:
+        - 16
   categories:
-  - clustering
+    - clustering
