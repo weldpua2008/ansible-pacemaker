@@ -1,8 +1,8 @@
 ---
 - name: Converge
-  hosts: all
+  hosts: cluster-dns
   roles:
-    - role: ansible-pacemaker
+    - role: ../../ansible-pacemaker
   vars:
     pacemaker_ansible_group: all
     pacemaker_password: secret

@@ -14,7 +14,6 @@
 - name: Enable and start PCS daemon
   service: name=pcsd enabled=yes state=started
   tags:
-    - no_converge
     - setup
 
 - name: Create cluster system group
@@ -106,7 +105,6 @@
     - corosync
   ignore_errors: true
   tags:
-    - no_converge
     - setup
 
 - name: Check if path exists pacemaker_resource.d
